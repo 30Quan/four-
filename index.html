@@ -350,14 +350,12 @@ function renderCard(token, isNew, idx) {
       <div class="token-title">【Four打满】${shortName}</div>
     </div>
     <div class="token-info">
-      <div class="token-row">⏱打满时间: ${fillDuration}</div>
+      <div class="token-row">🚀发射时间: ${launchTime}</div>
       <div class="token-row">🌐名称: ${name}</div>
+      <div class="token-row">⌚️打满时间: ${fillDuration}</div>
       <div class="token-row">🔰平台: [FOUR]${tag ? ' #'+tag : ''}</div>
       <div class="token-row">👥进度: ${progress}</div>
-      <div class="token-row">⌚️时间: ${createTime}</div>
-      <div class="token-row">🚀发射: ${launchTime}</div>
       <div class="token-row">💵底池: ${liquidity}</div>
-      <div class="token-row">📊交易量: ${fmtNum(vol)}</div>
     </div>
     <div class="token-addr">
       <code>${truncAddr(addr)}</code>
@@ -365,7 +363,7 @@ function renderCard(token, isNew, idx) {
     </div>
     <div class="token-footer">
       <a class="token-link link-ave" href="https://ave.ai/token/${addr}-bsc" target="_blank" rel="noopener">Ave.ai</a>
-      <a class="token-link link-bsc" href="https://bscscan.com/token/${addr}" target="_blank" rel="noopener">BscScan</a>
+      <a class="token-link link-bsc" href="https://x.com/search?q=%24${shortName}" target="_blank" rel="noopener">Twitter</a>
     </div>
   `;
 
