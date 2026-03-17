@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Four.meme 新外盘监控</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#05080f;--bg2:#0a1020;--bg3:#0f1a30;
+  --green:#00ff88;--green2:#00cc6a;--green-dim:rgba(0,255,136,.08);
+  --green-glow:0 0 20px rgba(0,255,136,.3),0 0 60px rgba(0,255,136,.1);
+  --red:#ff3860;--yellow:#ffd23f;--cyan:#00d4ff;
+  --text:#e0e8f0;--text2:#8899aa;--text3:#445566;
+  --card:#0b1525;--card-border:#162040;
+  --font-display:'Orbitron',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-cn:'Noto Sans SC',sans-serif;
+}
+html{font-size:14px;background:var(--bg)}
+body{font-family:var(--font-cn);color:var(--text);background:var(--bg);min-height:100vh;overflow-x:hidden;position:relative}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,136,.015) 2px,rgba(0,255,136,.015) 4px);pointer-events:none;z-index:9999}
+body::after{content:'';position:fixed;top:0;left:0;right:0;height:200px;background:radial-gradient(ellipse at 50% 0%,rgba(0,255,136,.06) 0%,transparent 70%);pointer-events:none;z-index:1}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--green2);border-radius:2px}
+
+/* Header */
+.header{position:sticky;top:0;z-index:100;background:linear-gradient(180deg,var(--bg) 0%,rgba(5,8,15,.95) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--card-border);padding:16px 16px 12px}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.logo{font-family:var(--font-display);font-size:1.1rem;font-weight:900;letter-spacing:2px;color:var(--green);text-shadow:var(--green-glow);animation:logoGlow 3s ease-in-out infinite alternate}
+@keyframes logoGlow{0%{text-shadow:0 0 10px rgba(0,255,136,.3),0 0 30px rgba(0,255,136,.1)}100%{text-shadow:0 0 20px rgba(0,255,136,.5),0 0 60px rgba(0,255,136,.2),0 0 100px rgba(0,255,136,.1)}}
+.logo-sub{font-family:var(--font-cn);font-size:.65rem;color:var(--text2);font-weight:300;letter-spacing:1px;margin-top:2px}
+.header-actions{display:flex;gap:8px;align-items:center}
+.icon-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--card-border);background:var(--card);color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;font-size:1rem}
+.icon-btn:hover,.icon-btn.active{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.icon-btn svg{width:18px;height:18px;fill:currentColor}
+
+/* Stats bar */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 2px}
+.stat{background:var(--card);border:1px solid var(--card-border);border-radius:8px;padding:8px 10px;text-align:center;position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--green);opacity:.4}
+.stat-val{font-family:var(--font-display);font-size:1.15rem;font-weight:700;color:var(--green);line-height:1.3}
+.stat-val.red{color:var(--red)}
+.stat-label{font-size:.6rem;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono);margin-top:2px}
+
+/* Countdown ring */
+.countdown-wrap{position:relative;width:36px;height:36px;flex-shrink:0}
+.countdown-ring{width:36px;height:36px;transform:rotate(-90deg)}
+.countdown-ring circle{fill:none;stroke-width:3}
+.countdown-ring .bg{stroke:var(--card-border)}
+.countdown-ring .fg{stroke:var(--green);stroke-linecap:round;transition:stroke-dashoffset .5s linear}
+.countdown-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:.6rem;color:var(--green);font-weight:700}
+
+/* Token list */
+.token-list{padding:12px 16px 100px;display:flex;flex-direction:column;gap:10px}
+.token-card{background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:14px;position:relative;overflow:hidden;animation:cardIn .4s ease-out both;transition:border-color .3s,transform .2s}
+.token-card:active{transform:scale(.98)}
+.token-card.is-new{border-color:var(--green);box-shadow:0 0 20px rgba(0,255,136,.1),inset 0 0 20px rgba(0,255,136,.03)}
+@keyframes cardIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+.new-badge{position:absolute;top:10px;right:10px;font-family:var(--font-display);font-size:.55rem;font-weight:700;color:var(--bg);background:var(--green);padding:2px 8px;border-radius:4px;letter-spacing:2px;animation:badgePulse 1.5s ease-in-out infinite}
+@keyframes badgePulse{0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,.5)}50%{box-shadow:0 0 0 8px rgba(0,255,136,0)}}
+
+.token-head{margin-bottom:8px}
+.token-title{font-family:var(--font-cn);font-weight:700;font-size:1rem;color:var(--green);line-height:1.3}
+.token-info{margin-bottom:10px;padding:8px 10px;background:rgba(0,0,0,.25);border-radius:8px}
+.token-row{font-size:.82rem;color:var(--text);line-height:1.8;font-family:var(--font-cn)}
+
+.token-addr{display:flex;align-items:center;gap:6px;margin-bottom:10px;background:rgba(0,0,0,.3);border-radius:6px;padding:6px 8px}
+.token-addr code{font-family:var(--font-mono);font-size:.68rem;color:var(--cyan);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-btn{font-size:.6rem;color:var(--text3);cursor:pointer;padding:2px 6px;border-radius:4px;border:1px solid var(--card-border);background:none;font-family:var(--font-mono);transition:all .2s}
+.copy-btn:hover{color:var(--green);border-color:var(--green)}
+.copy-btn.copied{color:var(--green);border-color:var(--green)}
+
+
+.token-footer{display:flex;gap:8px}
+.token-link{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;padding:8px;border-radius:8px;font-size:.72rem;font-weight:500;text-decoration:none;transition:all .2s;font-family:var(--font-cn)}
+.link-ave{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,255,136,.2)}
+.link-ave:hover{background:rgba(0,255,136,.15);border-color:var(--green)}
+.link-bsc{background:rgba(255,210,63,.05);color:var(--yellow);border:1px solid rgba(255,210,63,.15)}
+.link-bsc:hover{background:rgba(255,210,63,.1)}
+
+/* Settings panel */
+.settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;opacity:0;visibility:hidden;transition:all .3s}
+.settings-overlay.show{opacity:1;visibility:visible}
+.settings-panel{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--card-border);border-radius:16px 16px 0 0;padding:20px 16px 40px;z-index:201;transform:translateY(100%);transition:transform .3s ease-out}
+.settings-panel.show{transform:translateY(0)}
+.settings-title{font-family:var(--font-display);font-size:.85rem;color:var(--green);margin-bottom:16px;letter-spacing:1px}
+.settings-group{margin-bottom:16px}
+.settings-label{font-size:.7rem;color:var(--text2);margin-bottom:6px;font-family:var(--font-mono)}
+.settings-input{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--card-border);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:.8rem;outline:none;transition:border-color .2s}
+.settings-input:focus{border-color:var(--green)}
+.settings-input::placeholder{color:var(--text3)}
+.settings-btn{width:100%;padding:12px;border:none;border-radius:8px;font-family:var(--font-cn);font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s}
+.settings-save{background:var(--green);color:var(--bg);margin-bottom:8px}
+.settings-save:hover{box-shadow:var(--green-glow)}
+.settings-close{background:var(--card);color:var(--text2);border:1px solid var(--card-border)}
+
+/* Empty state */
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:2.5rem;margin-bottom:12px;opacity:.4}
+.empty-text{font-family:var(--font-mono);font-size:.8rem}
+
+/* Toast */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:var(--green);color:var(--bg);padding:8px 20px;border-radius:8px;font-size:.8rem;font-weight:500;z-index:300;transition:transform .3s ease-out;font-family:var(--font-cn)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* Loading */
+.loading{text-align:center;padding:40px;color:var(--text3)}
+.loading-dots{display:inline-flex;gap:4px}
+.loading-dots span{width:6px;height:6px;border-radius:50%;background:var(--green);animation:dotPulse .8s ease-in-out infinite}
+.loading-dots span:nth-child(2){animation-delay:.15s}
+.loading-dots span:nth-child(3){animation-delay:.3s}
+@keyframes dotPulse{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1.2)}}
+
+/* Status indicator */
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px;animation:statusBlink 2s infinite}
+@keyframes statusBlink{0%,100%{opacity:1}50%{opacity:.3}}
+.status-dot.error{background:var(--red);animation:none}
+
+@media(min-width:480px){
+  .token-list{max-width:500px;margin:0 auto}
+  .header{padding:16px 24px 12px}
+}
+</style>
+</head>
+<body>
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="logo">FOUR.MEME</div>
+      <div class="logo-sub">BNB Chain 新外盘监控</div>
+    </div>
+    <div class="header-actions">
+      <div class="countdown-wrap" id="countdownWrap" title="自动刷新倒计时">
+        <svg class="countdown-ring" viewBox="0 0 36 36">
+          <circle class="bg" cx="18" cy="18" r="15.5"/>
+          <circle class="fg" id="countdownCircle" cx="18" cy="18" r="15.5" stroke-dasharray="97.4" stroke-dashoffset="0"/>
+        </svg>
+        <div class="countdown-num" id="countdownNum">30</div>
+      </div>
+      <button class="icon-btn" id="soundBtn" title="声音通知">
+        <svg viewBox="0 0 24 24"><path id="soundIcon" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+      </button>
+      <button class="icon-btn" id="refreshBtn" title="手动刷新">
+        <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+      </button>
+      <button class="icon-btn" id="settingsBtn" title="设置">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val" id="statTotal">--</div>
+      <div class="stat-label">跟踪中</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="statNew">0</div>
+      <div class="stat-label">新发现</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="statTime">--:--</div>
+      <div class="stat-label"><span class="status-dot" id="statusDot"></span>刷新</div>
+    </div>
+  </div>
+</div>
+
+<!-- Token list -->
+<div class="token-list" id="tokenList">
+  <div class="loading">
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+    <p style="margin-top:12px;font-family:var(--font-mono);font-size:.75rem">正在连接 Four.meme...</p>
+  </div>
+</div>
+
+<!-- Settings panel -->
+<div class="settings-overlay" id="settingsOverlay"></div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-title">SETTINGS</div>
+  <div class="settings-group">
+    <div class="settings-label">PushPlus Token (微信推送)</div>
+    <input class="settings-input" id="pushplusInput" type="text" placeholder="填入你的 PushPlus Token">
+  </div>
+  <div class="settings-group">
+    <div class="settings-label">刷新间隔 (秒)</div>
+    <input class="settings-input" id="intervalInput" type="number" min="10" max="300" value="30" placeholder="30">
+  </div>
+  <button class="settings-btn settings-save" id="settingsSave">保存设置</button>
+  <button class="settings-btn settings-close" id="settingsClose">关闭</button>
+</div>
+<script>
+(() => {
+'use strict';
+
+// === State ===
+let seenAddrs = new Set();
+let allTokens = [];
+let newCount = 0;
+let countdown = 30;
+let interval = 30;
+let soundOn = false;
+let timer = null;
+const CIRC = 97.4; // 2*PI*15.5
+
+// === DOM refs ===
+const $ = id => document.getElementById(id);
+const tokenList = $('tokenList');
+const statTotal = $('statTotal');
+const statNew = $('statNew');
+const statTime = $('statTime');
+const statusDot = $('statusDot');
+const countdownCircle = $('countdownCircle');
+const countdownNum = $('countdownNum');
+const toast = $('toast');
+
+// === Audio context for beep ===
+function beep() {
+  if (!soundOn) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.3, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    o.start(); o.stop(ctx.currentTime + 0.3);
+  } catch(e) {}
+}
+
+// === Toast ===
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// === Format helpers ===
+function fmtNum(n) {
+  if (n == null) return 'N/A';
+  n = parseFloat(n);
+  if (isNaN(n)) return 'N/A';
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return '$' + (n/1e3).toFixed(2) + 'K';
+  return '$' + n.toFixed(2);
+}
+function truncAddr(a) {
+  if (!a || a.length < 12) return a || '';
+  return a.slice(0, 6) + '...' + a.slice(-4);
+}
+function nowStr() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+}
+
+// === Copy address ===
+function copyAddr(addr, btn) {
+  navigator.clipboard.writeText(addr).then(() => {
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 1500);
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = addr; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+// === Push notification ===
+async function pushNotify(tokens) {
+  const ppToken = localStorage.getItem('pushplus_token');
+  if (!ppToken || tokens.length === 0) return;
+  const items = tokens.map(t => {
+    const name = t.name || t.tokenName || '?';
+    const shortName = t.shortName || t.symbol || t.tokenSymbol || '?';
+    const addr = t.tokenAddress || t.address || '?';
+    const vol = fmtNum(t.volume);
+    const ct = fmtDate(t.createDate);
+    const dex = dexCache[addr.toLowerCase()] || {};
+    const launchTime = dex.launchTime ? fmtDate(dex.launchTime) : 'N/A';
+    const fillDur = (dex.launchTime && t.createDate) ? fmtDuration(parseInt(dex.launchTime) - parseInt(t.createDate)) : 'N/A';
+    const liq = dex.liquidity != null ? fmtNum(dex.liquidity) : 'N/A';
+    return `【Four打满】${shortName}<br>⏱打满时间: ${fillDur}<br>🌐名称: ${name}<br>🔰平台: [FOUR]<br>👥进度: 100.00%<br>⌚️时间: ${ct}<br>🚀发射: ${launchTime}<br>💵底池: ${liq}<br>📊交易量: ${vol}<br><a href="https://ave.ai/token/${addr}-bsc">Ave.ai查看</a>`;
+  }).join('<hr>');
+  try {
+    await fetch('/api/push', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        pushplus_token: ppToken,
+        title: `Four.meme 新外盘 x${tokens.length}`,
+        content: items
+      })
+    });
+  } catch(e) {}
+}
+
+// === Format date from timestamp ===
+function fmtDate(ts) {
+  if (!ts) return 'N/A';
+  const d = new Date(parseInt(ts));
+  const Y = d.getFullYear();
+  const M = String(d.getMonth()+1).padStart(2,'0');
+  const D = String(d.getDate()).padStart(2,'0');
+  const h = String(d.getHours()).padStart(2,'0');
+  const m = String(d.getMinutes()).padStart(2,'0');
+  const s = String(d.getSeconds()).padStart(2,'0');
+  return `${Y}-${M}-${D} ${h}:${m}:${s}`;
+}
+
+// === Render token card ===
+function renderCard(token, isNew, idx) {
+  const name = token.name || token.tokenName || 'Unknown';
+  const shortName = token.shortName || token.symbol || token.tokenSymbol || '???';
+  const addr = token.tokenAddress || token.address || '';
+  const mc = token.cap || token.marketCap || token.marketCapUsd;
+  const vol = token.volume;
+  const progress = token.progress ? (parseFloat(token.progress)*100).toFixed(2)+'%' : 'N/A';
+  const createTime = fmtDate(token.createDate);
+  const tag = token.tag || '';
+
+  // DexScreener data
+  const dex = dexCache[addr.toLowerCase()] || {};
+  const launchTime = dex.launchTime ? fmtDate(dex.launchTime) : 'N/A';
+  const fillDuration = (dex.launchTime && token.createDate) ? fmtDuration(parseInt(dex.launchTime) - parseInt(token.createDate)) : 'N/A';
+  const liquidity = dex.liquidity != null ? fmtNum(dex.liquidity) : 'N/A';
+
+  const card = document.createElement('div');
+  card.className = 'token-card' + (isNew ? ' is-new' : '');
+  card.style.animationDelay = (idx * 0.05) + 's';
+
+  card.innerHTML = `
+    ${isNew ? '<div class="new-badge">NEW</div>' : ''}
+    <div class="token-head">
+      <div class="token-title">【Four打满】${shortName}</div>
+    </div>
+    <div class="token-info">
+      <div class="token-row">⏱打满时间: ${fillDuration}</div>
+      <div class="token-row">🌐名称: ${name}</div>
+      <div class="token-row">🔰平台: [FOUR]${tag ? ' #'+tag : ''}</div>
+      <div class="token-row">👥进度: ${progress}</div>
+      <div class="token-row">⌚️时间: ${createTime}</div>
+      <div class="token-row">🚀发射: ${launchTime}</div>
+      <div class="token-row">💵底池: ${liquidity}</div>
+      <div class="token-row">📊交易量: ${fmtNum(vol)}</div>
+    </div>
+    <div class="token-addr">
+      <code>${truncAddr(addr)}</code>
+      <button class="copy-btn" data-addr="${addr}">复制</button>
+    </div>
+    <div class="token-footer">
+      <a class="token-link link-ave" href="https://ave.ai/token/${addr}-bsc" target="_blank" rel="noopener">Ave.ai</a>
+      <a class="token-link link-bsc" href="https://bscscan.com/token/${addr}" target="_blank" rel="noopener">BscScan</a>
+    </div>
+  `;
+
+  const copyBtn = card.querySelector('.copy-btn');
+  copyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    copyAddr(addr, copyBtn);
+  });
+
+  return card;
+}
+
+// === Format duration ===
+function fmtDuration(ms) {
+  if (!ms || ms < 0) return 'N/A';
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  return `${h}小时${m}分钟${sec}秒`;
+}
+
+// === Fetch DexScreener data for tokens ===
+let dexCache = {};
+async function fetchDexInfo(tokens) {
+  const addrs = tokens.map(t => (t.tokenAddress || t.address || '')).filter(a => a && !dexCache[a.toLowerCase()]);
+  if (addrs.length === 0) return;
+  const batch = addrs.slice(0, 30).join(',');
+  try {
+    const r = await fetch('/api/dex-info?addrs=' + batch);
+    const d = await r.json();
+    if (d.ok && d.data) {
+      Object.keys(d.data).forEach(k => { dexCache[k] = d.data[k]; });
+    }
+  } catch(e) {}
+}
+
+// === Fetch & render ===
+async function fetchTokens() {
+  statusDot.classList.remove('error');
+  try {
+    const res = await fetch('/api/tokens');
+    const data = await res.json();
+    if (!data.ok && data.tokens.length === 0) throw new Error(data.error);
+
+    const tokens = data.tokens || [];
+    const newTokens = [];
+
+    // First load: seed seen set
+    if (seenAddrs.size === 0) {
+      tokens.forEach(t => {
+        const a = (t.tokenAddress || t.address || '').toLowerCase();
+        if (a) seenAddrs.add(a);
+      });
+      allTokens = tokens;
+      newCount = 0;
+    } else {
+      // Check for new
+      tokens.forEach(t => {
+        const a = (t.tokenAddress || t.address || '').toLowerCase();
+        if (a && !seenAddrs.has(a)) {
+          seenAddrs.add(a);
+          newTokens.push(t);
+        }
+      });
+      if (newTokens.length > 0) {
+        allTokens = [...newTokens, ...allTokens];
+        newCount += newTokens.length;
+        beep();
+        pushNotify(newTokens);
+      }
+      // Update existing data
+      const addrMap = {};
+      tokens.forEach(t => {
+        const a = (t.tokenAddress || t.address || '').toLowerCase();
+        if (a) addrMap[a] = t;
+      });
+      allTokens = allTokens.map(t => {
+        const a = (t.tokenAddress || t.address || '').toLowerCase();
+        return addrMap[a] || t;
+      });
+    }
+
+    // Fetch DexScreener data
+    await fetchDexInfo(allTokens);
+
+    // Render
+    tokenList.innerHTML = '';
+    if (allTokens.length === 0) {
+      tokenList.innerHTML = '<div class="empty"><div class="empty-icon">📡</div><div class="empty-text">暂无已毕业代币数据</div></div>';
+    } else {
+      const newAddrs = new Set(newTokens.map(t => (t.tokenAddress || t.address || '').toLowerCase()));
+      allTokens.forEach((t, i) => {
+        const a = (t.tokenAddress || t.address || '').toLowerCase();
+        tokenList.appendChild(renderCard(t, newAddrs.has(a), i));
+      });
+    }
+
+    // Update stats
+    statTotal.textContent = seenAddrs.size;
+    statNew.textContent = newCount;
+    statNew.className = 'stat-val' + (newCount > 0 ? '' : '');
+    if (newCount > 0) statNew.style.color = 'var(--green)';
+    statTime.textContent = nowStr();
+
+  } catch(e) {
+    console.error('Fetch error:', e);
+    statusDot.classList.add('error');
+    if (allTokens.length === 0) {
+      tokenList.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">连接失败，稍后重试...</div></div>';
+    }
+  }
+}
+
+// === Countdown tick ===
+function tick() {
+  countdown--;
+  if (countdown <= 0) {
+    countdown = interval;
+    fetchTokens();
+  }
+  countdownNum.textContent = countdown;
+  const offset = CIRC * (1 - countdown / interval);
+  countdownCircle.style.strokeDashoffset = offset;
+}
+
+// === Init ===
+function startTimer() {
+  if (timer) clearInterval(timer);
+  countdown = interval;
+  timer = setInterval(tick, 1000);
+}
+
+// Load settings
+const savedPP = localStorage.getItem('pushplus_token') || '';
+const savedInterval = parseInt(localStorage.getItem('poll_interval')) || 30;
+$('pushplusInput').value = savedPP;
+$('intervalInput').value = savedInterval;
+interval = savedInterval;
+
+// Sound toggle
+$('soundBtn').addEventListener('click', () => {
+  soundOn = !soundOn;
+  $('soundBtn').classList.toggle('active', soundOn);
+  if (soundOn) beep();
+});
+
+// Refresh button
+$('refreshBtn').addEventListener('click', () => {
+  countdown = interval;
+  fetchTokens();
+  showToast('已刷新');
+});
+
+// Settings
+$('settingsBtn').addEventListener('click', () => {
+  $('settingsOverlay').classList.add('show');
+  $('settingsPanel').classList.add('show');
+});
+$('settingsOverlay').addEventListener('click', () => {
+  $('settingsOverlay').classList.remove('show');
+  $('settingsPanel').classList.remove('show');
+});
+$('settingsClose').addEventListener('click', () => {
+  $('settingsOverlay').classList.remove('show');
+  $('settingsPanel').classList.remove('show');
+});
+$('settingsSave').addEventListener('click', () => {
+  const pp = $('pushplusInput').value.trim();
+  const iv = parseInt($('intervalInput').value) || 30;
+  localStorage.setItem('pushplus_token', pp);
+  localStorage.setItem('poll_interval', iv);
+  interval = Math.max(10, Math.min(300, iv));
+  countdown = interval;
+  $('settingsOverlay').classList.remove('show');
+  $('settingsPanel').classList.remove('show');
+  showToast('设置已保存');
+});
+
+// First fetch
+fetchTokens();
+startTimer();
+
+})();
+</script>
+</body>
+</html>
